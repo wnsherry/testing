@@ -1,0 +1,256 @@
+---
+title: "Final Project"
+author: "Sherry Weng"
+date: "2022-12-07"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r}
+install.packages("cluster")
+install.packages("NbClust")
+install.packages("flexclust")
+install.packages("fMultivar")
+install.packages("ggplot2")
+install.packages("factoextra")
+
+library(cluster)
+library(NbClust)
+library(flexclust)
+library(fMultivar)
+library(ggplot2)
+library(factoextra)
+```
+
+```{r}
+genedata <- read.delim("/Users/sherryweng/Desktop/UCONN/2022 Fall/STAT 3675Q/Data/ncidata100genes.txt", header = FALSE)
+genedata
+labels <- as.character(unlist(genedata[1, ]))
+genedata.m <- matrix(as.numeric(unlist(genedata[-1, ])), 
+                     ncol = ncol(genedata))
+genedata.t <- t(genedata.m)
+```
+
+```{r}
+# 1. perform hierarchical clustering with linkage methods
+# single linkage
+
+genedata.scaled <- scale(genedata.t)
+d <- dist(genedata.scaled)
+d
+fit.single <- hclust(d, method = "single")
+plot(fit.single, 
+     hang = -1, 
+     cex = .8, 
+     main = "Single Linkage Clustering")
+
+nc.single <- NbClust(genedata.scaled, 
+                     distance = "euclidean", 
+                     min.nc = 2, 
+                     max.nc = 15, 
+                     method = "single", 
+                     index = "silhouette")
+nc.single$Best.nc
+
+single.clusters <- cutree(fit.single, 
+                          k = 14)
+table(single.clusters)
+plot(fit.single, 
+     hang = -1, 
+     cex = .8,
+     main = "Single Linkage Clustering\n14 Cluster Solution")
+rect.hclust(fit.single, 
+            k = 15, 
+            which = NULL, 
+            x = NULL, 
+            h = NULL, 
+            border = 2, 
+            single.clusters)
+```
+
+```{r}
+# complete linkage
+
+fit.complete <- hclust(d, method = "complete")
+plot(fit.complete, 
+     hang = -1, 
+     cex = .8, 
+     main = "Complete Linkage Clustering")
+nc.complete <- NbClust(genedata.scaled, 
+                       distance = "euclidean", 
+                       min.nc = 2, 
+                       max.nc = 15, 
+                       method = "complete", 
+                       index = "silhouette")
+nc.complete$Best.nc
+complete.clusters <- cutree(fit.complete, 
+                            k = 15)
+table(complete.clusters)
+
+plot(fit.complete, 
+     hang = -1, 
+     cex = .8,
+     main = "Complete Linkage Clustering\n2 Cluster Solution")
+rect.hclust(fit.complete, 
+            k = 15, 
+            which = NULL, 
+            x = NULL, 
+            h = NULL, 
+            border = 2, 
+            complete.clusters)
+```
+
+```{r}
+# average linkage
+
+fit.average <- hclust(d, method = "average")
+plot(fit.average, 
+     hang = -1, 
+     cex = .8, 
+     main = "Average Linkage Clustering")
+
+nc.average <- NbClust(genedata.scaled, 
+                      distance = "euclidean", 
+                      min.nc = 2, 
+                      max.nc = 15, 
+                      method = "average", 
+                      index = "silhouette")
+nc.average$Best.nc
+
+average.clusters <- cutree(fit.average, k = 15)
+table(average.clusters)
+
+plot(fit.average, 
+     hang = -1, 
+     cex = .8,
+     main = "Average Linkage Clustering\n2 Cluster Solution")
+rect.hclust(fit.average, 
+            k = 15, 
+            which = NULL, 
+            x = NULL, 
+            h = NULL, 
+            border = 2, 
+            average.clusters)
+```
+
+```{r}
+# centroid
+
+fit.centroid <- hclust(d, method = "centroid")
+plot(fit.centroid, hang = -1, cex = .8, main = "Centroid Linkage Clustering")
+
+nc.centroid <- NbClust(genedata.scaled, 
+                       distance = "euclidean", 
+                       min.nc = 2, 
+                       max.nc = 15, 
+                       method = "centroid", 
+                       index = "silhouette")
+nc.centroid$Best.nc
+
+centroid.clusters <- cutree(fit.centroid, k = 15)
+table(centroid.clusters)
+
+plot(fit.centroid, 
+     hang = -1, 
+     cex = .8,
+     main = "Centroid Linkage Clustering\n2 Cluster Solution")
+rect.hclust(fit.centroid, 
+            k = 15, 
+            which = NULL, 
+            h = NULL, 
+            border = 2, 
+            centroid.clusters)
+```
+
+```{r}
+# ward
+
+fit.ward <- hclust(d, method = "ward.D")
+plot(fit.ward, 
+     hang = -1, 
+     cex = .8, 
+     main = "Ward Linkage Clustering")
+
+nc.ward <- NbClust(genedata.scaled, 
+                   distance = "euclidean", 
+                   min.nc = 2, 
+                   max.nc = 15, 
+                   method = "ward.D", 
+                   index = "silhouette")
+nc.ward$Best.nc
+
+ward.clusters <- cutree(fit.average, k = 15)
+table(ward.clusters)
+
+plot(fit.ward, 
+     hang = -1,
+     cex = .8,
+     main = "Ward Linkage Clustering\n9 Cluster Solution")
+rect.hclust(fit.ward, 
+            k = 15, 
+            which = NULL, 
+            x = NULL, 
+            h = NULL, 
+            border = 2, 
+            ward.clusters)
+```
+
+```{r}
+# 2. perform k-means and partitioning around medoids (PAM) cluster methods
+# k-means
+
+wssplot <- function(genedata, 
+                    nc = 15, 
+                    seed = 1234){
+  wss <- (nrow(genedata)-1) * sum(apply(genedata, 
+                                        2, var))
+  for(i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(genedata, 
+                         centers = i)$withinss)
+  }
+  plot(1:nc, 
+       wss, 
+       type = "b", 
+       xlab = "Number of Clusters", 
+       ylab = "Within groups sum of squares")
+}
+genedata<- na.omit(genedata)
+wssplot(genedata.scaled)
+
+set.seed(1234)
+nc.km <- NbClust(genedata.scaled,
+                 min.nc = 2,
+                 max.nc = 15,
+                 method = "kmeans",
+                 index = "silhouette")
+nc.km$Best.nc
+
+fit.km <- kmeans(genedata.scaled,
+                 2,
+                 nstart = 25)
+fit.km$size
+
+fit.km$centers
+
+fit.km$cluster
+
+fviz_cluster(fit.km,
+             data = genedata.scaled,
+             palette = c("blue", "purple"))
+```
+
+```{r}
+# pam
+
+set.seed(1234)
+fit.pam <- pam(genedata.scaled,
+               k = 2,
+               stand = TRUE)
+fit.pam$medoids
+
+fviz_cluster(fit.pam,
+             data = genedata.scaled,
+             palette = c("green", "orange"))
+```
